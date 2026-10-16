@@ -2,6 +2,8 @@
 
 Turn a messy **Power Automate Desktop** flow into a clear picture.
 
+**Use it now: https://mingssii2.github.io/pad-flow-cleaner/**
+
 Paste a PAD flow and get back:
 
 - **A compact, secret-free version.** Default parameters and selector noise are removed, and passwords, tokens, emails and other PII are masked. It's small enough to review, or to give to an AI assistant.
