@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>PAD Flow Cleaner</title>
+<meta name="description" content="Clean, redact and visualize Power Automate Desktop flows. Free, open source, runs 100% in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3Cpath d='M6.5 10v2.5a3 3 0 0 0 3 3H14'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.8/dist/mermaid.min.js" integrity="sha384-N3QqR/7q+xm3BGX+CBbNI8AUmRRqcsDzToy+0z1NLDI0QmTKW8zvwLvqulJgk3dP" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1220;
+    --surface: #111a2e;
+    --surface-2: #16213a;
+    --border: #22304d;
+    --border-strong: #2f4166;
+    --text: #e6ebf5;
+    --text-2: #a7b3c9;
+    --text-3: #8391ab;
+    --accent: #22c55e;
+    --accent-hover: #4ade80;
+    --on-accent: #052e16;
+    --accent-soft: rgba(34, 197, 94, 0.12);
+    --info: #60a5fa;
+    --danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.12);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font); font-size: 16px; line-height: 1.5;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh;
+  }
+  .icon { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+
+  /* ── Header ── */
+  .topbar { border-bottom: 1px solid var(--border); }
+  .topbar .wrap { display: flex; align-items: center; gap: 10px; height: 56px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+  .brand .icon { width: 22px; height: 22px; color: var(--accent); }
+  .topbar .tag { margin-left: auto; font-size: 13px; color: var(--text-3); }
+
+  /* ── Hero ── */
+  .hero { padding: 48px 0 28px; }
+  .hero h1 { font-size: clamp(1.75rem, 4.5vw, 2.6rem); line-height: 1.15; letter-spacing: -0.025em; font-weight: 750; max-width: 18ch; text-wrap: balance; }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero p { margin-top: 12px; color: var(--text-2); max-width: 60ch; font-size: 17px; }
+  .steps { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 28px; }
+  .steps li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .steps .num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--accent); background: var(--accent-soft); }
+  .steps b { display: block; font-size: 14px; }
+  .steps span { font-size: 13px; color: var(--text-2); }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card-head h2 { font-size: 15px; font-weight: 650; }
+  .meta { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+  /* ── Input ── */
+  .dropzone { position: relative; border-radius: var(--radius-sm); }
+  .dropzone.over textarea { border-color: var(--accent); background: var(--surface-2); }
+  .dropzone.over::after {
+    content: "Drop to load"; position: absolute; inset: 0; display: grid; place-items: center;
+    font-weight: 650; color: var(--accent); pointer-events: none;
+  }
+  textarea {
+    display: block; width: 100%; min-height: 220px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 14px; font: 13px/1.55 var(--mono); resize: vertical;
+    transition: border-color 150ms var(--ease), background-color 150ms var(--ease);
+  }
+  textarea::placeholder { color: var(--text-3); }
+  textarea:focus-visible { outline: none; border-color: var(--info); }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .toolbar .spacer { flex: 1; }
+  .privacy { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: var(--text-2); }
+  .privacy .icon { width: 16px; height: 16px; color: var(--accent); }
+
+  /* ── Buttons ── */
+  button, .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 40px; padding: 8px 14px;
+    font: 600 14px/1 var(--font); color: var(--text);
+    background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    cursor: pointer; white-space: nowrap;
+    transition: background-color 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease);
+  }
+  button:hover, .btn:hover { border-color: var(--text-3); }
+  button:focus-visible, .btn:focus-within:has(:focus-visible), summary:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); padding: 8px 20px; }
+  button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  button:disabled, button:disabled:hover { background: var(--surface-2); border-color: var(--border); color: var(--text-3); cursor: not-allowed; transform: none; }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+  button.ghost:hover { color: var(--text); background: var(--surface-2); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ── Disclosure ── */
+  details.more { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+  details.more summary { cursor: pointer; font-size: 14px; color: var(--text-2); list-style: none; display: flex; align-items: center; gap: 8px; }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 150ms var(--ease); }
+  details.more[open] summary::before { transform: rotate(45deg); }
+  details.more summary:hover { color: var(--text); }
+  .more-body { margin-top: 12px; }
+  .hint { font-size: 13px; color: var(--text-3); margin-bottom: 8px; }
+  .sub-label { font-size: 13px; color: var(--text-2); margin: 12px 0 4px; font-family: var(--mono); }
+  #subflowBoxes textarea, #mainArea { min-height: 110px; }
+
+  /* ── Results ── */
+  #result[hidden] { display: none; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .stat { padding: 14px; border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--border); }
+  .stat-label { font-size: 12px; color: var(--text-3); font-weight: 600; }
+  .stat-value { font-size: 24px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stat-value.good { color: var(--accent); }
+  .stat.hero-stat { border-color: rgba(34, 197, 94, 0.4); background: var(--accent-soft); }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    min-height: 44px; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    background: transparent; color: var(--text-2); padding: 8px 14px; font-weight: 600;
+  }
+  .tab:hover { color: var(--text); border-color: transparent; border-bottom-color: var(--border-strong); background: transparent; }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .view-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-3); margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+  .view-meta b { color: var(--text-2); font-weight: 600; }
+  .graph {
+    background: #ffffff; border-radius: var(--radius-sm);
+    padding: 16px; min-height: 200px; overflow: auto; max-height: 75vh;
+  }
+  .graph.actual svg { max-width: none !important; width: auto; }
+  .output-text { min-height: 360px; white-space: pre; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .mmd-src summary { cursor: pointer; font-size: 13px; color: var(--text-3); margin-top: 12px; }
+  .mmd-src textarea { margin-top: 8px; min-height: 160px; }
+  .loading { color: var(--text-2); font-size: 14px; padding: 24px 0; }
+  .err { color: var(--danger); background: var(--danger-soft); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 14px; }
+  .err pre { margin-top: 8px; font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--text-2); }
+  .note { margin-top: 16px; font-size: 13px; color: var(--text-3); }
+
+  /* ── How it works ── */
+  .specs { font: 12px/1.6 var(--mono); color: var(--text-2); white-space: pre-wrap; overflow-x: auto; }
+
+  footer { padding: 28px 0 40px; font-size: 13px; color: var(--text-3); }
+
+  @media (max-width: 720px) {
+    .hero { padding-top: 32px; }
+    .steps { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .card { padding: 16px; }
+    .topbar .tag { display: none; }
+    .tabs { gap: 0; }
+    .tab { padding: 8px 9px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M6.5 10v2.5a3 3 0 0 0 3 3H14"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-broom" viewBox="0 0 24 24"><path d="m14 4 6 6"/><path d="m17 7-7.5 7.5"/><path d="M9.5 14.5 4 20h6l3.5-3.5"/><path d="m6.5 17.5 2-2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></symbol>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand"><svg class="icon"><use href="#i-logo"/></svg>PAD Flow Cleaner</div>
+    <div class="tag">Free · Open source · No sign-up</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Turn a messy PAD flow into <em>a clear picture</em>.</h1>
+    <p>Paste a Power Automate Desktop flow. Get a compact, secret-free version for review or AI, plus a flowchart and step-by-step summary in one click.</p>
+    <ol class="steps">
+      <li><span class="num">1</span><div><b>Paste or drop</b><span>Copy actions from the PAD designer, or drop a .txt file.</span></div></li>
+      <li><span class="num">2</span><div><b>Clean &amp; redact</b><span>Noise removed. Passwords, tokens and PII masked.</span></div></li>
+      <li><span class="num">3</span><div><b>See the flow</b><span>Flowchart, plain-English steps and sequence diagram.</span></div></li>
+    </ol>
+  </section>
+
+  <section class="card" aria-labelledby="inputTitle">
+    <div class="card-head">
+      <h2 id="inputTitle">Your flow</h2>
+      <span class="meta" id="pasteinfo">0 chars · 0 lines</span>
+    </div>
+    <div class="dropzone" id="drop">
+      <label for="pasteArea" class="sr-only">PAD flow text</label>
+      <textarea id="pasteArea" spellcheck="false" placeholder="In Power Automate Desktop: select all actions (Ctrl+A), copy (Ctrl+C), then paste here. Or drop a .txt file."></textarea>
+    </div>
+    <div class="toolbar">
+      <label class="btn"><svg class="icon"><use href="#i-file"/></svg>Open .txt<input type="file" id="file" accept=".txt,.robin,text/plain" class="sr-only"></label>
+      <button type="button" class="ghost" id="sampleBtn"><svg class="icon"><use href="#i-play"/></svg>Try a sample</button>
+      <span class="spacer"></span>
+      <button type="button" class="primary" id="run" disabled><svg class="icon"><use href="#i-broom"/></svg>Clean flow</button>
+    </div>
+    <p class="privacy"><svg class="icon"><use href="#i-lock"/></svg>Runs 100% in your browser. Nothing is uploaded or saved.</p>
+
+    <details class="more">
+      <summary>Advanced: merge a main flow with its subflows</summary>
+      <div class="more-body">
+        <p class="hint">Paste the main subflow (the one with CALLs) and scan. Then paste each subflow body. Empty boxes are skipped. Merge builds one flow and cleans it.</p>
+        <label for="mainArea" class="sub-label">main</label>
+        <textarea id="mainArea" spellcheck="false" placeholder="CALL init&#10;CALL excel&#10;..."></textarea>
+        <div class="actions">
+          <button type="button" id="scanCalls">Scan CALLs</button>
+        </div>
+        <div id="subflowBoxes"></div>
+        <div class="actions">
+          <button type="button" class="primary" id="buildMerged" hidden>Merge &amp; clean</button>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card" id="result" hidden aria-labelledby="resultTitle" tabindex="-1">
+    <div class="card-head"><h2 id="resultTitle">Result</h2></div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" role="tablist" aria-label="Result views">
+      <button class="tab" role="tab" id="tab-flow" aria-controls="view" data-view="flow">Flowchart</button>
+      <button class="tab" role="tab" id="tab-eng" aria-controls="view" data-view="eng">Steps</button>
+      <button class="tab" role="tab" id="tab-seq" aria-controls="view" data-view="seq">Sequence</button>
+      <button class="tab" role="tab" id="tab-text" aria-controls="view" data-view="text">Cleaned text</button>
+    </div>
+    <div id="view" role="tabpanel"></div>
+    <p class="note">Redaction is pattern-based and best effort. Review the output before you share it.</p>
+  </section>
+
+  <section class="card">
+    <details class="more" style="margin-top:0;border-top:0;padding-top:0;">
+      <summary>How it works</summary>
+      <div class="more-body">
+<pre class="specs">
+Clean (Mode B): pre-flatten multi-line $'''...''' (DOTALL)
+               drop line containing '"Repository": "{' entirely
+               drop default params: WaitForPageToLoadTimeout, UseMachineLocale,
+                 ClearCache, ClearCookies, Timeout, PiPUserDataFolderMode,
+                 TargetDesktop, UnfocusAfterPopulate
+               collapse appmask['...']['name'] to [name]
+               shorten WebAutomation.X.Y -> Web.Y
+               normalize whitespace (4-space indent -> 2-space)
+               SCRUB sensitive data:
+                 - PAD encrypted: Text: P'...' -> &lt;REDACTED_ENCRYPTED&gt;
+                 - selector-context field values for password/secret/token/
+                   apikey/username/email/login (handles \' escape) -> &lt;REDACTED&gt;
+                 - JWT, Bearer, AWS (AKIA*), GitHub PAT (ghp_*), Slack (xox*)
+                 - URL embedded creds: https://u:p@h -> https://&lt;REDACTED&gt;@h
+                 - Connection-string Password=X / Pwd=X
+                 - TH National ID / phone (with label)
+                 - Plain emails -> &lt;REDACTED_EMAIL&gt;
+
+Graph (Mode C, runs on Mode B output): drop ControlRepository tail
+               stack-based parser tracks LOOP/IF/BLOCK frames
+               IF branches: yes/no labels, merge at END
+               LOOP: back-edge from body tail to head (dashed "iter")
+               LOOP exit: edge from head to post-END node (labeled "done")
+               GOTO X / NEXT LOOP: dashed back-edge to LABEL X or loop head
+               label shortener compresses each line to verb + key arg
+               emits Mermaid flowchart TD; shapes vary by node kind
+</pre>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<footer class="wrap">MIT licensed · No tracking, no cookies, no storage · Diagrams by Mermaid</footer>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: true } });
+
+const $ = id => document.getElementById(id);
+
+// ═══════════════════════════════════════════════════════
+//  Subflow assembler (pure helpers, unit-tested in test_pad_cleaner.js)
+// ═══════════════════════════════════════════════════════
+function discoverCalls(text) {
+  const re = /^\s*CALL\s+(\w+)/gim;
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
+function assembleMerged(main, subs) {
+  const m = (main || '').trim();
+  if (!m) return '';
+  let out = '** REGION Main\n' + m + '\n** ENDREGION\n';
+  for (const s of subs) {
+    const b = (s.body || '').trim();
+    if (b) out += `\n** REGION ${s.name}\n${b}\n** ENDREGION\n`;
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Sensitive data scrubber (used by Mode B)
+// ═══════════════════════════════════════════════════════
+function scrubSensitive(text) {
+  let n = 0;
+  const hit = (re, rep) => {
+    text = text.replace(re, (...a) => {
+      n++;
+      if (typeof rep === 'function') return rep(...a);
+      return rep.replace(/\$(\d+)/g, (_, k) => a[parseInt(k)] != null ? a[parseInt(k)] : '');
+    });
+  };
+
+  hit(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '<REDACTED_PRIVATE_KEY>');
+  hit(/\bssh-(rsa|ed25519|dss|ecdsa)\s+AAAA[A-Za-z0-9+/=]+(?:\s+\S+)?/g, '<REDACTED_SSH_KEY>');
+  hit(/\bText:\s*P'[^']+'/g, 'Text: <REDACTED_ENCRYPTED>');
+  hit(/\bP'[A-Za-z0-9+/=]{40,}'/g, '<REDACTED_ENCRYPTED>');
+  hit(/\bsk-ant-[A-Za-z0-9_-]{20,}\b/g, '<REDACTED_ANTHROPIC_KEY>');
+  hit(/\bsk-proj-[A-Za-z0-9_-]{20,}\b/g, '<REDACTED_OPENAI_KEY>');
+  hit(/\bsk-[A-Za-z0-9]{32,}\b/g, '<REDACTED_OPENAI_KEY>');
+  hit(/\bAIza[0-9A-Za-z_-]{35,45}\b/g, '<REDACTED_GOOGLE_API_KEY>');
+  hit(/\b(sk|pk|rk)_(test|live)_[A-Za-z0-9]{20,}\b/g, '<REDACTED_STRIPE_KEY>');
+  hit(/\bghp_[A-Za-z0-9]{36}\b/g, '<REDACTED_GH_PAT>');
+  hit(/\bgithub_pat_[A-Za-z0-9_]{82}\b/g, '<REDACTED_GH_PAT>');
+  hit(/\bglpat-[A-Za-z0-9_-]{20}\b/g, '<REDACTED_GITLAB_PAT>');
+  hit(/\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g, '<REDACTED_SLACK>');
+  hit(/\bAKIA[0-9A-Z]{16}\b/g, '<REDACTED_AWS_AKID>');
+  hit(/\baws_secret_access_key\s*[=:]\s*['"]?[A-Za-z0-9/+]{40}['"]?/gi, 'aws_secret_access_key=<REDACTED>');
+  hit(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '<REDACTED_JWT>');
+  hit(/\b(Authorization\s*[:=]\s*)[^\r\n]+/gi, '$1<REDACTED>');
+  hit(/\bBearer\s+[A-Za-z0-9._\-+/=]{20,}/gi, 'Bearer <REDACTED>');
+  hit(/\b(SET\s+)(\w*(?:Pass|Passwd|Password|Secret|Token|ApiKey|Api[_-]?Key|PrivateKey|AccessKey|PIN|OTP|CVV|Cvv|Auth|Credential|ClientSecret)\w*)(\s+TO\s+)\S.*$/gim, '$1$2$3<REDACTED>');
+  hit(/\b(SET\s+)(ID|Username|UserName|UserID|Login|Email|EmailAddress|Phone|Mobile|NationalID|CitizenID|ThaiID|BankAccount|AccountNo|AccountNumber|CreditCard|CardNumber|SSN|TaxID|Address)(\s+TO\s+)\S.*$/gim, '$1$2$3<REDACTED>');
+
+  const ctxFields = ['password', 'passwd', 'secret', 'token', 'api[_-]?key', 'apikey', 'username', 'user', 'email', 'login', 'pin', 'otp', 'cvv', 'cardnumber', 'creditcard', 'pass'];
+  for (const f of ctxFields) {
+    const re = new RegExp("\\\\'?" + f + "\\\\'?[^\\n]*?Text:\\s*(\\S[^\\n]*?)(\\s+Mode:)", 'gi');
+    hit(re, (m, val, tail) => m.replace(val + tail, '<REDACTED>' + tail));
+  }
+
+  hit(/(https?:\/\/)[^:\s\/]+:[^@\s\/]+@/gi, '$1<REDACTED>@');
+  hit(/\b(mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis|amqp|sqlserver|mssql|ftp|sftp|ssh):\/\/[^:\s\/]+:[^@\s\/]+@/gi, '$1://<REDACTED>@');
+  hit(/([?&])(sig|signature|token|access_token|refresh_token|api[_-]?key|apikey|secret|client_secret|auth|password|pwd|sas|session)=([^&\s'\"<>]+)/gi, '$1$2=<REDACTED>');
+  hit(/(\/workflows\/|\/runs\/|\/flows\/|\/triggers\/|\/resourceGroups\/[^\/]+\/providers\/[^\/]+\/)([0-9a-f]{32})\b/gi, '$1<REDACTED_ID>');
+  hit(/(\/)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(\/|\b)/gi, '$1<REDACTED_UUID>$2');
+  hit(/\b(Password|Pwd|PWD|pw)\s*=\s*[^;'"\s]+/gi, '$1=<REDACTED>');
+  hit(/\b(User\s*Id|UID|Uid)\s*=\s*[^;'"\s]+/gi, '$1=<REDACTED>');
+  hit(/([A-Z]:\\+Users\\+)([A-Za-z][\w.-]+)(\\+)/g, '$1<REDACTED_USER>$3');
+  hit(/(\/(?:home|Users)\/)([A-Za-z][\w.-]+)(\/|$)/g, '$1<REDACTED_USER>$3');
+  hit(/\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b/g, '<REDACTED_CARD>');
+  hit(/\b(NationalID|CitizenID|ThaiID|บัตรประชาชน)\s*[:=]?\s*\d{13}\b/gi, '$1: <REDACTED>');
+  hit(/\b(Phone|Tel|Mobile|เบอร์)\s*[:=]?\s*0\d{8,9}\b/gi, '$1: <REDACTED>');
+  hit(/\b(BankAccount|AccountNo|AccountNumber|เลขที่บัญชี)\s*[:=]?\s*[\d-]{8,20}\b/gi, '$1: <REDACTED>');
+  hit(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, '<REDACTED_EMAIL>');
+
+  return { text, redactions: n };
+}
+
+// ═══════════════════════════════════════════════════════
+//  Mode B: AI-compact
+// ═══════════════════════════════════════════════════════
+function modeB(text) {
+  const before = text.length;
+  text = text.replace(/\$'''([\s\S]*?)'''/g, (m, c) => c.replace(/\r?\n/g, ' '));
+  const lines = text.split(/\r?\n/);
+  const cleaned = [];
+  for (const line of lines) {
+    if (line.includes('"Repository":') && line.length > 1000) continue;
+    let l = line;
+    l = l.replace(/\s+TargetDesktop:\s*\$'''[\s\S]*?'''/g, '');
+    l = l.replace(/\s+TargetDesktop:\s*\{[^{}]*\{[^{}]*\}[^{}]*\}/g, '');
+    l = l.replace(/\s+TargetDesktop:\s*\{[^}]*\}/g, '');
+    l = l.replace(/\$'''([^']*(?:'[^']+)*?)'''/g, '$1');
+    l = l.replace(/\s+WaitForPageToLoadTimeout:\s*\d+/g, '');
+    l = l.replace(/\s+UseMachineLocale:\s*(True|False)/g, '');
+    l = l.replace(/\s+ClearCache:\s*(True|False)/g, '');
+    l = l.replace(/\s+ClearCookies:\s*(True|False)/g, '');
+    l = l.replace(/\s+Timeout:\s*\d+/g, '');
+    l = l.replace(/\s+PiPUserDataFolderMode:\s*\S+/g, '');
+    l = l.replace(/\s+UnfocusAfterPopulate:\s*(True|False)/g, '');
+    l = l.replace(/appmask\['[^']*'\](\['[^']*'\])+/g, (m) => {
+      const last = m.match(/\['([^']*)'\]/g).pop();
+      return last.replace(/\\'/g, "'");
+    });
+    l = l.replace(/\bWebAutomation\.\w+\.(\w+)/g, 'Web.$1');
+    const indent = (l.match(/^\s*/)?.[0] || '');
+    const indentLvl = Math.floor(indent.length / 4);
+    l = '  '.repeat(indentLvl) + l.trim().replace(/\s{2,}/g, ' ');
+    if (l.trim()) cleaned.push(l);
+  }
+  let out = cleaned.join('\n');
+  const scrub = scrubSensitive(out);
+  out = scrub.text;
+  return { text: out, before, after: out.length, redactions: scrub.redactions };
+}
+
+// ═══════════════════════════════════════════════════════
+//  Mode C: Visual graph via Mermaid
+// ═══════════════════════════════════════════════════════
+function lastQuoted(s) {
+  const re = /'((?:\\'|[^'])*?)'/g;
+  let last = null, m;
+  while ((m = re.exec(s)) !== null) last = m[1];
+  return last ? last.replace(/\\'/g, "'") : null;
+}
+
+function mmdEscape(s) {
+  return String(s).replace(/[\[\]{}()|<>"`]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function shortenLabel(t) {
+  let s = t.trim();
+  let m;
+  m = s.match(/^SET\s+(\w+)\s+TO\s*(.*)$/i);
+  if (m) return `${m[1]} = ${m[2] || '∅'}`;
+  m = s.match(/^LOOP\s+FOREACH\s+(\w+)\s+IN\s+(\w+)/i);
+  if (m) return `FOREACH ${m[1]} IN ${m[2]}`;
+  m = s.match(/^LOOP\s+(.+)/i);
+  if (m) return `LOOP ${m[1]}`;
+  m = s.match(/^IF\s+(.+?)\s+THEN$/i);
+  if (m) return `${m[1]} ?`;
+  m = s.match(/^BLOCK\s+(\w+)/i);
+  if (m) return `TRY: ${m[1]}`;
+  if (/^ON BLOCK ERROR/i.test(s)) return 'CATCH';
+  m = s.match(/^LABEL\s+(\w+)/i);
+  if (m) return `LABEL: ${m[1]}`;
+  m = s.match(/^GOTO\s+(\w+)/i);
+  if (m) return `→ ${m[1]}`;
+  m = s.match(/^CALL\s+(\w+)/i);
+  if (m) return `⇒ ${m[1]}`;
+  if (/^NEXT LOOP/i.test(s)) return '↻ next';
+  m = s.match(/^ERROR\s*=>\s*(\w+)/i);
+  if (m) return `ERROR → ${m[1]}`;
+  m = s.match(/^WAIT.*?(?:Web|UI)\.(\w+)/i);
+  if (m) {
+    const ctrl = lastQuoted(s);
+    const f = s.match(/FOR\s+(\d+)/);
+    return `WAIT ${m[1]}${ctrl ? ' [' + ctrl + ']' : ''}${f ? ' ' + f[1] + 's' : ''}`;
+  }
+  m = s.match(/^Web\.(\w+)/);
+  if (m) {
+    const ctrl = lastQuoted(s);
+    const txtM = s.match(/\bText:\s*(\S+)/);
+    return `Web.${m[1]}${ctrl ? ' [' + ctrl + ']' : ''}${txtM ? ' ← ' + txtM[1] : ''}`;
+  }
+  m = s.match(/^WebAutomation\.(\w+)/);
+  if (m) return `Web.${m[1]}`;
+  m = s.match(/^Excel\.WriteToExcel\.WriteCell.*?Value:\s*(\S+).*?Column:\s*(\w+)\s+Row:\s*(\w+)/i);
+  if (m) return `Excel write col ${m[2]} row ${m[3]} = ${m[1]}`;
+  if (/^Excel\.LaunchExcel/i.test(s)) return 'Excel.Launch';
+  if (/^Excel\.SetActiveWorksheet/i.test(s)) return 'Excel.SetSheet';
+  if (/^Excel\.ReadFromExcel/i.test(s)) return 'Excel.ReadAll';
+  if (/^Excel\.CloseExcel/i.test(s)) return 'Excel.Close & Save';
+  m = s.match(/^File\.WriteText\s+File:\s*(\w+)/i);
+  if (m) return `File.WriteText ${m[1]}`;
+  m = s.match(/^Folder\.Create.*FolderName:\s*(\w+)/i);
+  if (m) return `Folder.Create ${m[1]}`;
+  m = s.match(/^Text\.Trim\s+Text:\s*(\w+)/i);
+  if (m) return `Trim ${m[1]}`;
+  if (/^DateTime\.GetCurrentDateTime/i.test(s)) return 'DateTime.Now';
+  if (/^Text\.ConvertDateTimeToText/i.test(s)) return 'DateTime → text';
+  m = s.match(/^Workstation\.TakeScreenshot.*File:\s*(\w+)/i);
+  if (m) return `Screenshot → ${m[1]}`;
+  if (/^Display\.ShowMessageDialog/i.test(s)) {
+    const title = s.match(/Title:\s*(.+?)\s+Message:/);
+    return `ShowDialog${title ? ': ' + title[1].trim() : ''}`;
+  }
+  m = s.match(/^Variables\.IncreaseVariable\s+Value:\s*(\w+)/i);
+  if (m) return `${m[1]}++`;
+  if (/^Variables\.FilterDataTable/i.test(s)) {
+    const d = s.match(/DataTable:\s*(\w+)/);
+    return `Filter DataTable${d ? ' ' + d[1] : ''}`;
+  }
+  if (/^Variables\.FindOrReplaceInDataTable/i.test(s)) {
+    const v = s.match(/ValueToFind:\s*(\S+)/);
+    return `Find in DataTable${v ? ' ' + v[1] : ''}`;
+  }
+  if (/^Web\.LaunchChrome|^Web\.LaunchEdge/i.test(s)) {
+    const u = s.match(/Url:\s*(\S+)/);
+    return `Browser.Launch${u ? ' ' + u[1].slice(0, 40) : ''}`;
+  }
+  if (/^Web\.SelectRadioButton/i.test(s)) { const c = lastQuoted(s); return `Radio.Select${c ? ' [' + c + ']' : ''}`; }
+  if (/^Web\.SetDropDownListValueByName/i.test(s)) {
+    const c = lastQuoted(s);
+    const n = s.match(/OptionNames:\s*(\S+)/);
+    return `Dropdown${c ? ' [' + c + ']' : ''}${n ? ' = ' + n[1] : ''}`;
+  }
+  if (/^Web\.SetDropDownListValueByIndex/i.test(s)) {
+    const c = lastQuoted(s);
+    const n = s.match(/OptionsIndeces:\s*(\S+)/);
+    return `Dropdown${c ? ' [' + c + ']' : ''}${n ? ' idx ' + n[1] : ''}`;
+  }
+  if (/^Web\.InvokeWebService/i.test(s)) {
+    const u = s.match(/Url:\s*(\S+)/);
+    return `HTTP POST${u ? ' ' + u[1].slice(0, 30) : ''}`;
+  }
+  if (/^UIAutomation\.FocusWindow/i.test(s)) return 'Focus window';
+  if (/^UIAutomation\.PopulateTextField/i.test(s)) {
+    const v = s.match(/\bText:\s*(\S.+?)\s+Mode:/);
+    return `UI Fill text${v ? ' ← ' + v[1].slice(0, 30) : ''}`;
+  }
+  if (/^UIAutomation\.PressButton/i.test(s)) { const c = lastQuoted(s); return `UI Press${c ? ' [' + c + ']' : ''}`; }
+  if (/^UIAutomation\.WaitForRemoteDesktop/i.test(s)) { const c = lastQuoted(s); return `UI Wait${c ? ' [' + c + ']' : ''}`; }
+  if (/^MouseAndKeyboard\.SendKeys/i.test(s)) {
+    const k = s.match(/TextToSend:\s*(\S.+?)\s+DelayBetweenKeystrokes:/);
+    return `SendKeys${k ? ' ' + k[1].slice(0, 30) : ''}`;
+  }
+  if (/^System\.GetEnvironmentVariable/i.test(s)) {
+    const n = s.match(/Name:\s*(\S+)/);
+    return `Get env var${n ? ' ' + n[1] : ''}`;
+  }
+  if (/^Display\.InputDialog/i.test(s)) {
+    const title = s.match(/Title:\s*(.+?)\s+Message:/);
+    return `InputDialog${title ? ': ' + title[1].trim() : ''}`;
+  }
+  m = s.match(/^\*\*\s*REGION\s+(.+)$/i);
+  if (m) return `═══ ${m[1].trim()} ═══`;
+  if (/^\*\*\s*ENDREGION/i.test(s)) return '';
+  s = s.replace(/\s+/g, ' ');
+  return s.length > 70 ? s.slice(0, 70) + '…' : s;
+}
+
+function modeC(text) {
+  const compacted = modeB(text).text;
+  const lines = stripFlowTail(compacted.split(/\r?\n/));
+
+  const nodes = [];
+  const edges = [];
+  const stack = [];
+  const labels = {};
+  const pendingGotos = [];
+  const regions = [];
+  const callEdges = [];
+  let currentRegion = null;
+  let counter = 0;
+  let prev = null;
+
+  function mkNode(kind, raw) {
+    const id = 'n' + (counter++);
+    nodes.push({ id, kind, label: mmdEscape(shortenLabel(raw)) });
+    if (currentRegion) {
+      currentRegion.nodeIds.push(id);
+      if (!currentRegion.headId) currentRegion.headId = id;
+    }
+    return id;
+  }
+  function connect(from, to, opts = {}) {
+    if (!from || !to) return;
+    edges.push({ from, to, ...opts });
+  }
+
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+
+    let rm;
+    if ((rm = t.match(/^\*\*\s*REGION\s+(.+)$/i))) {
+      currentRegion = { name: rm[1].trim(), headId: null, nodeIds: [] };
+      regions.push(currentRegion);
+      prev = null;
+      continue;
+    }
+    if (/^\*\*\s*ENDREGION/i.test(t)) { currentRegion = null; prev = null; continue; }
+
+    if (/^FUNCTION\b/i.test(t) || /^END\s+FUNCTION\b/i.test(t)) continue;
+
+    if (/^END\b/i.test(t)) {
+      if (stack.length) {
+        const frame = stack.pop();
+        if (frame.type === 'if') {
+          if (prev && prev !== frame.headId) frame.exits.push(prev);
+          frame.mergePending = true;
+          stack._pendingIf = stack._pendingIf || [];
+          stack._pendingIf.push(frame);
+          prev = null;
+        } else if (frame.type === 'loop' || frame.type === 'block') {
+          if (frame.type === 'loop' && prev) {
+            connect(prev, frame.headId, { dashed: true, label: 'iter' });
+          }
+          stack._pendingLoop = stack._pendingLoop || [];
+          stack._pendingLoop.push(frame);
+          prev = frame.headId;
+        }
+      }
+      continue;
+    }
+
+    if (/^ELSE\b/i.test(t)) {
+      const frame = stack[stack.length - 1];
+      if (frame && frame.type === 'if') {
+        if (prev && prev !== frame.headId) frame.exits.push(prev);
+        prev = frame.headId;
+        frame.elseBranch = true;
+      }
+      continue;
+    }
+
+    let kind = 'action';
+    let isLabel = false, labelName = null;
+    let isGoto = false, gotoTarget = null;
+
+    let m;
+    let isCall = false, callTarget = null;
+    if ((m = t.match(/^LABEL\s+(\w+)/i))) { kind = 'label'; isLabel = true; labelName = m[1]; }
+    else if ((m = t.match(/^GOTO\s+(\w+)/i))) { kind = 'goto'; isGoto = true; gotoTarget = m[1]; }
+    else if ((m = t.match(/^CALL\s+(\w+)/i))) { kind = 'call'; isCall = true; callTarget = m[1]; }
+    else if (/^NEXT LOOP\b/i.test(t)) kind = 'next';
+    else if (/^LOOP\b/i.test(t)) kind = 'loop';
+    else if (/^IF\b.*\bTHEN\b/i.test(t)) kind = 'if';
+    else if (/^BLOCK\b/i.test(t)) kind = 'block';
+    else if (/^ON BLOCK ERROR/i.test(t)) kind = 'catch';
+    else if (/^SET\b/i.test(t)) kind = 'set';
+    else if (/^WAIT\b/i.test(t)) kind = 'wait';
+    else if (/^ERROR\s*=>/i.test(t)) kind = 'errcatch';
+
+    const id = mkNode(kind, t);
+    if (isLabel) labels[labelName] = id;
+    if (isCall) callEdges.push({ fromId: id, target: callTarget });
+
+    if (stack._pendingIf && stack._pendingIf.length) {
+      for (const f of stack._pendingIf) {
+        for (const ex of f.exits) connect(ex, id);
+        if (!f.elseBranch) connect(f.headId, id, { label: 'no' });
+      }
+      stack._pendingIf = [];
+    }
+    if (stack._pendingLoop && stack._pendingLoop.length) {
+      for (const f of stack._pendingLoop) {
+        connect(f.headId, id, { label: 'done' });
+      }
+      stack._pendingLoop = [];
+    }
+
+    if (prev) {
+      const prevNode = nodes.find(n => n.id === prev);
+      if (prevNode && prevNode.kind === 'if') {
+        connect(prev, id, { label: 'yes' });
+      } else {
+        connect(prev, id);
+      }
+    }
+
+    if (kind === 'loop' || kind === 'if' || kind === 'block') {
+      stack.push({ type: kind, headId: id, exits: [] });
+    }
+
+    if (isGoto) {
+      pendingGotos.push({ fromId: id, target: gotoTarget });
+      prev = null;
+      continue;
+    }
+    if (kind === 'next') {
+      const loopF = [...stack].reverse().find(f => f.type === 'loop');
+      if (loopF) connect(id, loopF.headId, { dashed: true, label: 'iter' });
+      prev = null;
+      continue;
+    }
+
+    prev = id;
+  }
+
+  for (const g of pendingGotos) {
+    if (labels[g.target]) {
+      connect(g.fromId, labels[g.target], { dashed: true });
+    }
+  }
+
+  for (const c of callEdges) {
+    const reg = regions.find(r => r.name.toLowerCase() === c.target.toLowerCase());
+    if (reg && reg.headId) connect(c.fromId, reg.headId, { dashed: true, label: 'call' });
+  }
+
+  function shape(n) {
+    const lbl = `"${n.label}"`;
+    switch (n.kind) {
+      case 'if':       return `{${lbl}}`;
+      case 'loop':     return `[/${lbl}/]`;
+      case 'set':      return `([${lbl}])`;
+      case 'goto':     return `>${lbl}]`;
+      case 'next':     return `>${lbl}]`;
+      case 'call':     return `[[${lbl}]]`;
+      case 'catch':    return `{{${lbl}}}`;
+      case 'errcatch': return `{{${lbl}}}`;
+      case 'wait':     return `[[${lbl}]]`;
+      case 'label':    return `((${lbl}))`;
+      case 'block':    return `[${lbl}]`;
+      default:         return `[${lbl}]`;
+    }
+  }
+  let mmd = 'flowchart TD\n';
+  const inRegion = new Set();
+  regions.forEach((r, idx) => {
+    if (!r.nodeIds.length) return;
+    mmd += `  subgraph sg${idx}["${mmdEscape(r.name)}"]\n`;
+    for (const nid of r.nodeIds) {
+      const n = nodes.find(x => x.id === nid);
+      mmd += `    ${n.id}${shape(n)}\n`;
+      inRegion.add(nid);
+    }
+    mmd += '  end\n';
+  });
+  for (const n of nodes) if (!inRegion.has(n.id)) mmd += `  ${n.id}${shape(n)}\n`;
+  for (const e of edges) {
+    const arrow = e.dashed ? '-.->' : '-->';
+    const lab = e.label ? `|${e.label}|` : '';
+    mmd += `  ${e.from} ${arrow}${lab} ${e.to}\n`;
+  }
+  return { mmd, nodeCount: nodes.length };
+}
+
+// ═══════════════════════════════════════════════════════
+//  Helpers shared by Sequence / English
+// ═══════════════════════════════════════════════════════
+function classifyActor(line) {
+  if (/^Excel\./i.test(line)) return 'X';
+  if (/^Web\.|^WebAutomation\./i.test(line)) return 'W';
+  if (/^File\.|^Folder\./i.test(line)) return 'F';
+  if (/^Workstation\./i.test(line)) return 'O';
+  if (/^Display\./i.test(line)) return 'U';
+  if (/WAIT.*Web\./i.test(line)) return 'W';
+  return null;
+}
+function sanitize(s) {
+  return String(s).replace(/[\n\r"`<>]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function stripFlowTail(rawLines) {
+  const out = [];
+  let skip = false;
+  for (const ln of rawLines) {
+    const tr = ln.trim();
+    if (/^#\s*\[ControlRepository\]/i.test(tr)) { skip = true; continue; }
+    if (/^\*\*\s*(REGION|ENDREGION)\b/i.test(tr)) { skip = false; out.push(ln); continue; }
+    if (!skip) out.push(ln);
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Mode Sequence: Mermaid sequenceDiagram
+// ═══════════════════════════════════════════════════════
+function modeSequence(text) {
+  const compacted = modeB(text).text;
+  const lines = stripFlowTail(compacted.split(/\r?\n/));
+  let mmd = 'sequenceDiagram\n';
+  mmd += '  participant B as Bot\n';
+  mmd += '  participant X as Excel\n';
+  mmd += '  participant W as Browser\n';
+  mmd += '  participant F as FileSystem\n';
+  mmd += '  participant O as OS\n';
+  mmd += '  participant U as User\n';
+
+  let count = 0;
+  const seqStack = [];
+  for (const ln of lines) {
+    let t = ln.trim();
+    if (!t) continue;
+    let m;
+    if ((m = t.match(/^\*\*\s*REGION\s+(.+)$/i))) { mmd += `  Note over B: ═══ ${sanitize(m[1])} ═══\n`; continue; }
+    if (/^\*\*\s*ENDREGION/i.test(t)) continue;
+    let disabled = false;
+    if ((m = t.match(/^DISABLE\s+(.+)$/i))) { disabled = true; t = m[1]; }
+
+    if ((m = t.match(/^LOOP\s+FOREACH\s+(\w+)\s+IN\s+(\w+)/i))) { mmd += `  loop FOREACH ${m[1]} IN ${m[2]}\n`; seqStack.push('loop'); continue; }
+    if ((m = t.match(/^LOOP\s+(.+)/i))) { mmd += `  loop ${sanitize(m[1])}\n`; seqStack.push('loop'); continue; }
+    if ((m = t.match(/^IF\s+(.+?)\s+THEN$/i))) { mmd += `  alt ${sanitize(m[1])}\n`; seqStack.push('alt'); continue; }
+    if ((m = t.match(/^ELSE\s+IF\s+(.+?)\s+THEN$/i))) { mmd += `  else ${sanitize(m[1])}\n`; continue; }
+    if (/^ELSE\b/i.test(t)) { mmd += '  else\n'; continue; }
+    if (/^END\b/i.test(t)) {
+      if (seqStack.length) {
+        const f = seqStack.pop();
+        if (f === 'loop' || f === 'alt') mmd += '  end\n';
+      }
+      continue;
+    }
+    if ((m = t.match(/^BLOCK\s+'?(\w+)'?/i))) { mmd += `  Note over B: TRY ${m[1]}\n`; seqStack.push('block'); continue; }
+    if ((m = t.match(/^CALL\s+(\w+)/i))) { mmd += `  Note over B: CALL ${m[1]}\n`; continue; }
+    if (/^ON BLOCK ERROR/i.test(t)) { mmd += '  Note over B: CATCH (block)\n'; continue; }
+    if ((m = t.match(/^ON ERROR(?:\s+REPEAT\s+\d+\s+TIMES\s+WAIT\s+\d+)?(?:\s+(\w+))?$/i))) {
+      mmd += `  Note over B: (on error${m[1] ? ' → ' + m[1] : ''})\n`;
+      seqStack.push('onerror');
+      continue;
+    }
+    if ((m = t.match(/^LABEL\s+(\w+)/i))) { mmd += `  Note over B: ▸ LABEL ${m[1]}\n`; continue; }
+    if ((m = t.match(/^GOTO\s+(\w+)/i))) { mmd += `  Note over B: → GOTO ${m[1]}\n`; continue; }
+    if (/^NEXT LOOP/i.test(t)) { mmd += '  Note over B: ↻ next iter\n'; continue; }
+    if (/^NEXT ACTION/i.test(t)) { mmd += '  Note over B: → next action\n'; continue; }
+    if (/^SET\b/i.test(t)) continue;
+    if (/^Text\.Trim/i.test(t)) continue;
+    if (/^DateTime\.GetCurrentDateTime/i.test(t)) continue;
+    if (/^Text\.ConvertDateTimeToText/i.test(t)) continue;
+    if (/^Variables\.IncreaseVariable/i.test(t)) continue;
+    if (/^ERROR\s*=>/i.test(t)) continue;
+
+    const actor = classifyActor(t);
+    const label = sanitize(shortenLabel(t));
+    const lbl = disabled ? '[DISABLED] ' + label : label;
+    if (actor) {
+      mmd += `  B->>${actor}: ${lbl}\n`;
+      if (actor === 'X' && /Read|ReadAll/i.test(label)) {
+        mmd += `  ${actor}-->>B: data\n`;
+      }
+    } else {
+      mmd += `  Note over B: ${lbl}\n`;
+    }
+    count++;
+  }
+  while (seqStack.length) {
+    const f = seqStack.pop();
+    if (f === 'loop' || f === 'alt' || f === 'block') mmd += '  end\n';
+  }
+  return { mmd, nodeCount: count };
+}
+
+// ═══════════════════════════════════════════════════════
+//  Mode English: Plain-English numbered steps
+// ═══════════════════════════════════════════════════════
+function translateAction(t) {
+  let m;
+  if ((m = t.match(/^SET\s+(\w+)\s+TO\s*(.*)$/i))) return `ตั้งค่า ${m[1]} = ${m[2] || '(ว่าง)'}`;
+  if (/^DateTime\.GetCurrentDateTime/i.test(t)) return 'อ่านเวลาปัจจุบัน';
+  if (/^Text\.ConvertDateTimeToText/i.test(t)) return 'แปลงเวลาเป็นข้อความ format yyyyMMdd_HHmmss';
+  if ((m = t.match(/^Folder\.Create.*FolderName:\s*(\w+)/i))) return `สร้าง folder ${m[1]}`;
+  if ((m = t.match(/^File\.WriteText\s+File:\s*(\w+)/i))) return `บันทึก log ลงไฟล์ ${m[1]}`;
+  if (/^Excel\.LaunchExcel/i.test(t)) return 'เปิด Excel ไฟล์ input';
+  if (/^Excel\.SetActiveWorksheet/i.test(t)) return 'เลือก worksheet';
+  if (/^Excel\.ReadFromExcel/i.test(t)) return 'อ่านข้อมูลทุกแถวจาก Excel';
+  if (/^Excel\.CloseExcel/i.test(t)) return 'ปิดและบันทึก Excel';
+  if ((m = t.match(/^Excel\.WriteToExcel\.WriteCell.*?Value:\s*(\S+).*?Column:\s*(\w+)\s+Row:\s*(\w+)/i))) return `บันทึก "${m[1]}" ลง Excel column ${m[2]} row ${m[3]}`;
+  if ((m = t.match(/^Text\.Trim\s+Text:\s*(\w+)/i))) return `Trim ${m[1]}`;
+  if (/^WebAutomation\.LaunchEdge|^Web\.LaunchEdge/i.test(t)) {
+    const u = t.match(/Url:\s*(\S+)/);
+    return `เปิด Edge browser${u ? ' → ' + u[1] : ''}`;
+  }
+  if (/^Web\.Focus/i.test(t)) { const c = lastQuoted(t); return `Focus ที่ field ${c || ''}`; }
+  if (/^Web\.PopulateText/i.test(t)) {
+    const c = lastQuoted(t);
+    const v = t.match(/\bText:\s*(\S+)/);
+    return `กรอก "${v ? v[1] : ''}" ลง [${c || 'field'}]`;
+  }
+  if (/^Web\.PressButton/i.test(t)) { const c = lastQuoted(t); return `กดปุ่ม ${c || ''}`; }
+  if (/^Web\.Click/i.test(t)) { const c = lastQuoted(t); return `คลิก ${c || ''}`; }
+  if (/^WebAutomation\.CloseWebBrowser|^Web\.CloseWebBrowser/i.test(t)) return 'ปิด browser';
+  if (/^WAIT.*Web\./i.test(t)) {
+    const c = lastQuoted(t);
+    const f = t.match(/FOR\s+(\d+)/);
+    return `รอ element ${c || ''}${f ? ' (timeout ' + f[1] + 's)' : ''}`;
+  }
+  if ((m = t.match(/^Workstation\.TakeScreenshot.*File:\s*(\w+)/i))) return `บันทึก screenshot → ${m[1]}`;
+  if (/^Display\.ShowMessageDialog/i.test(t)) {
+    const title = t.match(/Title:\s*(.+?)\s+Message:/);
+    return `แสดง dialog สรุปผล "${title ? title[1].trim() : ''}"`;
+  }
+  if ((m = t.match(/^Variables\.IncreaseVariable\s+Value:\s*(\w+)/i))) return `${m[1]} + 1`;
+  if ((m = t.match(/^ERROR\s*=>\s*(\w+)/i))) return `เก็บ error message เป็น ${m[1]}`;
+  if ((m = t.match(/^Variables\.FilterDataTable\s+DataTable:\s*(\w+)/i))) return `กรองข้อมูล DataTable ${m[1]}`;
+  if ((m = t.match(/^Variables\.FindOrReplaceInDataTable.*ValueToFind:\s*(\S+)/i))) return `หาค่า ${m[1]} ใน DataTable`;
+  if (/^Web\.LaunchChrome/i.test(t)) {
+    const u = t.match(/Url:\s*(\S+)/);
+    return `เปิด Chrome${u ? ' → ' + u[1] : ''}`;
+  }
+  if (/^Web\.SelectRadioButton/i.test(t)) { const c = lastQuoted(t); return `เลือก radio button ${c || ''}`; }
+  if (/^Web\.SetDropDownListValueByName/i.test(t)) {
+    const c = lastQuoted(t);
+    const n = t.match(/OptionNames:\s*(\S+)/);
+    return `เลือก dropdown [${c || ''}] = ${n ? n[1] : ''}`;
+  }
+  if (/^Web\.SetDropDownListValueByIndex/i.test(t)) {
+    const c = lastQuoted(t);
+    const n = t.match(/OptionsIndeces:\s*(\S+)/);
+    return `เลือก dropdown [${c || ''}] index ${n ? n[1] : ''}`;
+  }
+  if (/^Web\.InvokeWebService/i.test(t)) {
+    const u = t.match(/Url:\s*(\S+)/);
+    return `เรียก HTTP POST${u ? ' → ' + u[1].slice(0, 50) : ''}`;
+  }
+  if (/^UIAutomation\.FocusWindow/i.test(t)) return 'Focus หน้าต่าง';
+  if (/^UIAutomation\.PopulateTextField/i.test(t)) {
+    const v = t.match(/\bText:\s*(\S.+?)\s+Mode:/);
+    const c = lastQuoted(t);
+    return `กรอกฟอร์ม UI [${c || ''}] = ${v ? v[1] : ''}`;
+  }
+  if (/^UIAutomation\.PressButton/i.test(t)) { const c = lastQuoted(t); return `กดปุ่ม UI ${c || ''}`; }
+  if (/^UIAutomation\.WaitForRemoteDesktop/i.test(t)) { const c = lastQuoted(t); return `รอ UI element ${c || ''}`; }
+  if (/^MouseAndKeyboard\.SendKeys/i.test(t)) {
+    const k = t.match(/TextToSend:\s*(\S.+?)\s+DelayBetweenKeystrokes:/);
+    return `กดคีย์บอร์ด: ${k ? k[1] : ''}`;
+  }
+  if ((m = t.match(/^System\.GetEnvironmentVariable.*Name:\s*(\S+)/i))) return `อ่าน environment variable ${m[1]}`;
+  if (/^Display\.InputDialog/i.test(t)) {
+    const title = t.match(/Title:\s*(.+?)\s+Message:/);
+    return `รับ input จาก user "${title ? title[1].trim() : ''}"`;
+  }
+  if ((m = t.match(/^WAIT\s+(\d+)\s*$/i))) return `รอ ${m[1]} วินาที`;
+  return t.length > 80 ? t.slice(0, 80) + '…' : t;
+}
+
+function modeEnglish(text) {
+  const compacted = modeB(text).text;
+  const lines = stripFlowTail(compacted.split(/\r?\n/));
+
+  const items = [];
+  const stack = [];
+  let depth = 0;
+  for (const ln of lines) {
+    let t = ln.trim();
+    if (!t) continue;
+
+    let m;
+    if ((m = t.match(/^\*\*\s*REGION\s+(.+)$/i))) {
+      items.push({ depth, label: `═══ Section: ${m[1].trim()} ═══`, raw: t });
+      continue;
+    }
+    if (/^\*\*\s*ENDREGION/i.test(t)) continue;
+
+    let disabled = false;
+    if ((m = t.match(/^DISABLE\s+(.+)$/i))) { disabled = true; t = m[1]; }
+
+    if ((m = t.match(/^LOOP\s+FOREACH\s+(\w+)\s+IN\s+(\w+)/i))) {
+      items.push({ depth, label: `วนทุก ${m[1]} ใน ${m[2]}:`, raw: t });
+      stack.push('loop'); depth++; continue;
+    }
+    if ((m = t.match(/^LOOP\s+(.+)/i))) {
+      items.push({ depth, label: `วน ${m[1]}:`, raw: t });
+      stack.push('loop'); depth++; continue;
+    }
+    if ((m = t.match(/^IF\s+(.+?)\s+THEN$/i))) {
+      items.push({ depth, label: `ถ้า ${m[1]}:`, raw: t });
+      stack.push('if'); depth++; continue;
+    }
+    if ((m = t.match(/^ELSE\s+IF\s+(.+?)\s+THEN$/i))) {
+      const top = stack[stack.length - 1];
+      if (top === 'if') {
+        depth--;
+        items.push({ depth, label: `ไม่งั้น ถ้า ${m[1]}:`, raw: t });
+        depth++;
+      } else {
+        items.push({ depth, label: `ไม่งั้น ถ้า ${m[1]}:`, raw: t });
+      }
+      continue;
+    }
+    if (/^ELSE\b/i.test(t)) {
+      const top = stack[stack.length - 1];
+      if (top === 'if') {
+        depth--;
+        items.push({ depth, label: 'ไม่งั้น:', raw: t });
+        depth++;
+      } else {
+        items.push({ depth, label: 'ไม่งั้น:', raw: t });
+      }
+      continue;
+    }
+    if ((m = t.match(/^CALL\s+(\w+)/i))) {
+      items.push({ depth, label: `เรียก subflow ${m[1]}`, raw: t });
+      continue;
+    }
+    if (/^END\b/i.test(t)) {
+      if (stack.length) {
+        const frame = stack.pop();
+        if (frame === 'loop' || frame === 'if' || frame === 'block') {
+          depth = Math.max(0, depth - 1);
+        }
+      }
+      continue;
+    }
+    if ((m = t.match(/^BLOCK\s+'?(\w+)'?/i))) {
+      items.push({ depth, label: `ลอง (try) "${m[1]}":`, raw: t });
+      stack.push('block'); depth++; continue;
+    }
+    if (/^ON BLOCK ERROR/i.test(t)) {
+      const top = stack[stack.length - 1];
+      if (top === 'block') {
+        depth--;
+        items.push({ depth, label: 'ถ้าเกิด error:', raw: t });
+        depth++;
+      } else {
+        items.push({ depth, label: 'ถ้าเกิด error (block):', raw: t });
+      }
+      continue;
+    }
+    if ((m = t.match(/^ON ERROR(?:\s+REPEAT\s+\d+\s+TIMES\s+WAIT\s+\d+)?(?:\s+(\w+))?$/i))) {
+      const handler = m[1] ? ` → ${m[1]}` : '';
+      items.push({ depth, label: `(ถ้า error${handler})`, raw: t });
+      stack.push('onerror');
+      continue;
+    }
+    if ((m = t.match(/^LABEL\s+(\w+)/i))) {
+      items.push({ depth, label: `[จุดบันทึก: ${m[1]}]`, raw: t }); continue;
+    }
+    if ((m = t.match(/^GOTO\s+(\w+)/i))) {
+      items.push({ depth, label: `→ ข้ามไปจุด ${m[1]}`, raw: t }); continue;
+    }
+    if (/^NEXT LOOP/i.test(t)) {
+      items.push({ depth, label: '→ ไป row ถัดไป', raw: t }); continue;
+    }
+    if (/^NEXT ACTION/i.test(t)) {
+      items.push({ depth, label: '→ ไป action ถัดไป', raw: t }); continue;
+    }
+    const label = translateAction(t);
+    items.push({ depth, label: disabled ? `[DISABLED] ${label}` : label, raw: t });
+  }
+
+  const grouped = [];
+  let i = 0;
+  while (i < items.length) {
+    const cur = items[i];
+    if (/^Text\.Trim\s+Text:\s*\w+/i.test(cur.raw)) {
+      const fields = [];
+      let j = i;
+      while (j < items.length && items[j].depth === cur.depth) {
+        const mm = items[j].raw.match(/^Text\.Trim\s+Text:\s*(\w+)/i);
+        if (!mm) break;
+        fields.push(mm[1]);
+        j++;
+      }
+      if (fields.length > 1) {
+        grouped.push({ depth: cur.depth, label: `Trim ทุก field: ${fields.join(', ')}` });
+        i = j; continue;
+      }
+    }
+    if (/^Web\.PopulateText/i.test(cur.raw)) {
+      const pops = [];
+      let j = i;
+      while (j < items.length && items[j].depth === cur.depth && /^Web\.PopulateText/i.test(items[j].raw)) {
+        const r = items[j].raw;
+        const c = lastQuoted(r);
+        const v = r.match(/\bText:\s*(\S+)/);
+        pops.push(`[${c || 'field'}]=${v ? v[1] : ''}`);
+        j++;
+      }
+      if (pops.length > 1) {
+        grouped.push({ depth: cur.depth, label: `กรอกฟอร์ม: ${pops.join(', ')}` });
+        i = j; continue;
+      }
+    }
+    if (/^SET\s+\w+\s+TO/i.test(cur.raw)) {
+      const sets = [];
+      let j = i;
+      while (j < items.length && items[j].depth === cur.depth && /^SET\s+\w+\s+TO/i.test(items[j].raw)) {
+        sets.push(items[j].label);
+        j++;
+      }
+      if (sets.length >= 3) {
+        grouped.push({ depth: cur.depth, label: 'ตั้งค่าตัวแปร:' });
+        for (const s of sets) grouped.push({ depth: cur.depth + 1, label: '• ' + s.replace(/^ตั้งค่า /, '') });
+        i = j; continue;
+      }
+    }
+    grouped.push(cur);
+    i++;
+  }
+
+  const counters = [];
+  const out = [];
+  for (const it of grouped) {
+    counters.length = it.depth + 1;
+    if (counters[it.depth] === undefined) counters[it.depth] = 0;
+    counters[it.depth]++;
+    const num = counters.join('.');
+    const indent = '   '.repeat(it.depth);
+    out.push(`${indent}${num}. ${it.label}`);
+  }
+  return { text: out.join('\n'), stepCount: grouped.length };
+}
+
+// ═══════════════════════════════════════════════════════
+//  Sample flow (synthetic; every name, URL and secret is fake)
+// ═══════════════════════════════════════════════════════
+const SAMPLE_FLOW = String.raw`SET LoginEmail TO $'''jane.doe@example.com'''
+SET PortalPassword TO $'''Sup3rS3cret!2024'''
+SET InvoiceFile TO $'''C:\Users\jane.doe\Documents\invoices.xlsx'''
+WebAutomation.LaunchEdge.LaunchEdge Url: $'''https://portal.example.com/login''' WindowState: WebAutomation.BrowserWindowState.Maximized ClearCache: False ClearCookies: False WaitForPageToLoadTimeout: 60 Timeout: 60 PiPUserDataFolderMode: WebAutomation.PiPUserDataFolderModeEnum.AutomaticProfile TargetDesktop: $'''{"DisplayName":"Local computer","Route":{"ServerType":"Local","ServerAddress":""},"DesktopType":"local"}''' BrowserInstance=> Browser
+WebAutomation.PopulateTextField.PopulateTextFieldUsePhysicalKeyboard BrowserInstance: Browser Control: appmask['Web Page \'Portal Login\'']['Input text \'email\''] Text: LoginEmail Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: False WaitForPageToLoadTimeout: 60
+WebAutomation.PopulateTextField.PopulateTextFieldUsePhysicalKeyboard BrowserInstance: Browser Control: appmask['Web Page \'Portal Login\'']['Input password \'password\''] Text: P'AQAAANCMnd8BFdERjHoAwE/Cl+sBAAAAkJ6cXLq1xYcT0Z9kq3Hc8gQAAAACAAAAAAAQZgAAAAEAACAAAAA=' Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: False WaitForPageToLoadTimeout: 60
+WebAutomation.Click.Click BrowserInstance: Browser Control: appmask['Web Page \'Portal Login\'']['Button \'Sign in\''] WaitForPageToLoadTimeout: 60 MousePositionRelativeToElement: WebAutomation.RectangleEdgePoint.MiddleCenter OffsetX: 0 OffsetY: 0
+Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: InvoiceFile Visible: True ReadOnly: False UseMachineLocale: False Instance=> ExcelInstance
+Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance ReadAsText: False FirstLineIsHeader: True RangeValue=> Invoices
+SET ApprovedCount TO 0
+LOOP FOREACH Row IN Invoices
+    IF Row['Status'] = $'''Paid''' THEN
+        NEXT LOOP
+    END
+    IF Row['Amount'] > 10000 THEN
+        Outlook.Launch Instance=> OutlookInstance
+        Outlook.SendEmailThroughOutlook.SendEmail Instance: OutlookInstance Account: $'''ap-team@example.com''' SendTo: $'''finance.manager@example.com''' Subject: $'''Approval needed: %Row['InvoiceNo']%''' Body: $'''Invoice %Row['InvoiceNo']% is over 10,000 and needs your approval.''' IsBodyHtml: False IsDraft: False
+    ELSE
+        WebAutomation.PopulateTextField.PopulateTextField BrowserInstance: Browser Control: appmask['Web Page \'Invoices\'']['Input text \'search\''] Text: Row['InvoiceNo'] Mode: WebAutomation.PopulateTextMode.Replace UnfocusAfterPopulate: False WaitForPageToLoadTimeout: 60
+        WebAutomation.Click.Click BrowserInstance: Browser Control: appmask['Web Page \'Invoices\'']['Button \'Approve\''] WaitForPageToLoadTimeout: 60
+        Variables.IncreaseVariable Value: ApprovedCount IncrementValue: 1
+    END
+END
+Excel.CloseExcel.Close Instance: ExcelInstance
+WebAutomation.CloseWebBrowser BrowserInstance: Browser
+Display.ShowMessageDialog.ShowMessage Title: $'''Done''' Message: $'''Approved %ApprovedCount% invoices.''' Icon: Display.Icon.Information Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed`;
+
+// ═══════════════════════════════════════════════════════
+//  Input
+// ═══════════════════════════════════════════════════════
+let currentText = '';
+
+function refreshState() {
+  currentText = $('pasteArea').value;
+  const lines = currentText ? currentText.split('\n').length : 0;
+  $('pasteinfo').textContent = `${currentText.length.toLocaleString()} chars · ${lines.toLocaleString()} lines`;
+  $('run').disabled = !currentText.trim();
+}
+
+function setInput(text, label) {
+  $('pasteArea').value = text;
+  refreshState();
+  if (label) $('pasteinfo').textContent = `${label} · ${$('pasteinfo').textContent}`;
+}
+
+$('pasteArea').addEventListener('input', refreshState);
+$('pasteArea').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !$('run').disabled) runClean();
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => setInput(e.target.result, file.name);
+  reader.readAsText(file);
+}
+
+const drop = $('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+$('file').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+$('sampleBtn').addEventListener('click', () => {
+  setInput(SAMPLE_FLOW, 'Sample flow');
+  runClean();
+});
+$('run').addEventListener('click', () => runClean());
+
+// ── Subflow merge UI ──
+function existingSubNames() {
+  return [...document.querySelectorAll('#subflowBoxes textarea')].map(t => t.dataset.name);
+}
+function addSubflowBox(name) {
+  const id = 'sub_' + name;
+  const lbl = document.createElement('label');
+  lbl.className = 'sub-label';
+  lbl.htmlFor = id;
+  lbl.textContent = `${name} (optional)`;
+  const ta = document.createElement('textarea');
+  ta.id = id;
+  ta.spellcheck = false;
+  ta.dataset.name = name;
+  ta.placeholder = `Paste body of "${name}" here (leave empty to skip)`;
+  ta.addEventListener('input', () => {
+    const have = existingSubNames();
+    for (const n of discoverCalls(ta.value)) if (!have.includes(n)) { addSubflowBox(n); have.push(n); }
+  });
+  $('subflowBoxes').append(lbl, ta);
+}
+
+$('scanCalls').addEventListener('click', () => {
+  const names = discoverCalls($('mainArea').value);
+  if (!names.length) {
+    $('subflowBoxes').innerHTML = '<p class="hint" style="margin-top:12px;">No CALL found in main.</p>';
+    $('buildMerged').hidden = true;
+    return;
+  }
+  if ($('subflowBoxes').querySelector('.hint')) $('subflowBoxes').innerHTML = '';
+  const have = existingSubNames();
+  for (const name of names) if (!have.includes(name)) addSubflowBox(name);
+  $('buildMerged').hidden = false;
+});
+
+$('buildMerged').addEventListener('click', () => {
+  const subs = [...document.querySelectorAll('#subflowBoxes textarea')]
+    .map(ta => ({ name: ta.dataset.name, body: ta.value }));
+  const merged = assembleMerged($('mainArea').value, subs);
+  if (!merged) return;
+  setInput(merged, 'Merged flow');
+  runClean();
+});
+
+// ═══════════════════════════════════════════════════════
+//  Run + result views
+// ═══════════════════════════════════════════════════════
+let lastCleaned = '';
+let activeView = 'flow';
+let viewCache = {};
+
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const tick = () => new Promise(r => setTimeout(r, 10));
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function errHTML(title, e) {
+  return `<div class="err">${esc(title)}: ${esc(e.message)}<pre>${esc(e.stack || '')}</pre></div>`;
+}
+
+async function runClean() {
+  currentText = $('pasteArea').value;
+  if (!currentText.trim()) return;
+  const result = $('result');
+  result.hidden = false;
+  $('stats').innerHTML = '';
+  $('view').innerHTML = '<div class="loading">Cleaning…</div>';
+  await tick();
+
+  let r;
+  try {
+    r = modeB(currentText);
+  } catch (e) {
+    $('view').innerHTML = errHTML('Error', e);
+    return;
+  }
+  lastCleaned = r.text;
+  viewCache = {};
+
+  const pct = r.before ? (1 - r.after / r.before) * 100 : 0;
+  $('stats').innerHTML = `
+    <div class="stat hero-stat"><div class="stat-label">Size reduced</div><div class="stat-value good" id="pctVal">${pct.toFixed(1)}%</div></div>
+    <div class="stat"><div class="stat-label">Chars before</div><div class="stat-value">${r.before.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Chars after</div><div class="stat-value">${r.after.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Secrets masked</div><div class="stat-value good">${r.redactions.toLocaleString()}</div></div>`;
+  countUp($('pctVal'), pct);
+  result.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  showView('flow');
+}
+
+function countUp(el, target) {
+  if (reducedMotion()) return;
+  const t0 = performance.now(), dur = 700;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    el.textContent = (target * (1 - Math.pow(1 - p, 3))).toFixed(1) + '%';
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+const tabs = [...document.querySelectorAll('.tab')];
+tabs.forEach((t, i) => {
+  t.addEventListener('click', () => showView(t.dataset.view));
+  t.addEventListener('keydown', e => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!d) return;
+    const next = tabs[(i + d + tabs.length) % tabs.length];
+    next.focus();
+    showView(next.dataset.view);
+  });
+});
+
+function showView(kind) {
+  activeView = kind;
+  for (const t of tabs) {
+    const on = t.dataset.view === kind;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+  }
+  $('view').setAttribute('aria-labelledby', 'tab-' + kind);
+  if (kind === 'text') {
+    renderTextView(`<span><b>${lastCleaned.split('\n').length.toLocaleString()}</b> lines</span>`, lastCleaned, 'flow_clean.txt');
+  } else if (kind === 'eng') {
+    try {
+      const r = modeEnglish(lastCleaned);
+      renderTextView(`<span><b>${r.stepCount.toLocaleString()}</b> steps</span>`, r.text, 'flow_steps.txt');
+    } catch (e) {
+      $('view').innerHTML = errHTML('View error', e);
+    }
+  } else {
+    renderGraph(kind);
+  }
+}
+
+function renderTextView(metaHTML, text, fileName) {
+  const view = $('view');
+  view.innerHTML = `
+    <div class="view-meta">${metaHTML}</div>
+    <label class="sr-only" for="outText">Output text</label>
+    <textarea id="outText" class="output-text" readonly spellcheck="false"></textarea>
+    <div class="actions"></div>`;
+  $('outText').value = text;
+  view.querySelector('.actions').append(
+    actionButton('i-download', 'Download .txt', () => downloadText(text, fileName)),
+    copyButton('Copy', () => text),
+  );
+}
+
+async function renderGraph(kind) {
+  const view = $('view');
+  let c = viewCache[kind];
+  if (!c) {
+    view.innerHTML = '<div class="loading">Drawing diagram…</div>';
+    await tick();
+    try {
+      const { mmd, nodeCount } = (kind === 'seq' ? modeSequence : modeC)(lastCleaned);
+      const { svg } = await mermaid.render('mGraph_' + Date.now(), mmd);
+      c = viewCache[kind] = { mmd, nodeCount, svg };
+    } catch (e) {
+      if (activeView === kind) view.innerHTML = errHTML('View error', e);
+      return;
+    }
+    if (activeView !== kind) return;
+  }
+
+  const base = kind === 'seq' ? 'flow_sequence' : 'flow_graph';
+  view.innerHTML = `
+    <div class="view-meta">
+      <span><b>${c.nodeCount.toLocaleString()}</b> nodes</span>
+      <span><b>${c.mmd.length.toLocaleString()}</b> Mermaid chars</span>
+    </div>
+    <div class="graph" id="graph"></div>
+    <div class="actions"></div>
+    <details class="mmd-src"><summary>Mermaid source</summary>
+      <label class="sr-only" for="mmdsrc">Mermaid source</label>
+      <textarea id="mmdsrc" readonly spellcheck="false"></textarea>
+    </details>`;
+  $('graph').innerHTML = c.svg;
+  $('mmdsrc').value = c.mmd;
+
+  const size = actionButton('i-expand', 'Actual size', () => {
+    const on = $('graph').classList.toggle('actual');
+    size.lastChild.textContent = on ? 'Fit to width' : 'Actual size';
+  });
+  view.querySelector('.actions').append(
+    actionButton('i-download', 'Download .svg', () => downloadText(c.svg, base + '.svg', 'image/svg+xml')),
+    actionButton('i-download', 'Download .mmd', () => downloadText(c.mmd, base + '.mmd')),
+    copyButton('Copy Mermaid', () => c.mmd),
+    size,
+  );
+}
+
+function actionButton(icon, label, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${icon}"/></svg><span>${esc(label)}</span>`;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function copyButton(label, getText) {
+  const b = actionButton('i-copy', label, async () => {
+    try {
+      await navigator.clipboard.writeText(getText());
+      b.lastChild.textContent = 'Copied';
+    } catch {
+      b.lastChild.textContent = 'Copy failed';
+    }
+    setTimeout(() => { b.lastChild.textContent = label; }, 1500);
+  });
+  return b;
+}
+
+function downloadText(text, name, mime = 'text/plain') {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
