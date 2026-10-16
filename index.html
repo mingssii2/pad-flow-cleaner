@@ -835,81 +835,81 @@ function modeSequence(text) {
 // ═══════════════════════════════════════════════════════
 function translateAction(t) {
   let m;
-  if ((m = t.match(/^SET\s+(\w+)\s+TO\s*(.*)$/i))) return `ตั้งค่า ${m[1]} = ${m[2] || '(ว่าง)'}`;
-  if (/^DateTime\.GetCurrentDateTime/i.test(t)) return 'อ่านเวลาปัจจุบัน';
-  if (/^Text\.ConvertDateTimeToText/i.test(t)) return 'แปลงเวลาเป็นข้อความ format yyyyMMdd_HHmmss';
-  if ((m = t.match(/^Folder\.Create.*FolderName:\s*(\w+)/i))) return `สร้าง folder ${m[1]}`;
-  if ((m = t.match(/^File\.WriteText\s+File:\s*(\w+)/i))) return `บันทึก log ลงไฟล์ ${m[1]}`;
-  if (/^Excel\.LaunchExcel/i.test(t)) return 'เปิด Excel ไฟล์ input';
-  if (/^Excel\.SetActiveWorksheet/i.test(t)) return 'เลือก worksheet';
-  if (/^Excel\.ReadFromExcel/i.test(t)) return 'อ่านข้อมูลทุกแถวจาก Excel';
-  if (/^Excel\.CloseExcel/i.test(t)) return 'ปิดและบันทึก Excel';
-  if ((m = t.match(/^Excel\.WriteToExcel\.WriteCell.*?Value:\s*(\S+).*?Column:\s*(\w+)\s+Row:\s*(\w+)/i))) return `บันทึก "${m[1]}" ลง Excel column ${m[2]} row ${m[3]}`;
+  if ((m = t.match(/^SET\s+(\w+)\s+TO\s*(.*)$/i))) return `Set ${m[1]} = ${m[2] || '(empty)'}`;
+  if (/^DateTime\.GetCurrentDateTime/i.test(t)) return 'Get current date/time';
+  if (/^Text\.ConvertDateTimeToText/i.test(t)) return 'Convert date/time to text (yyyyMMdd_HHmmss)';
+  if ((m = t.match(/^Folder\.Create.*FolderName:\s*(\w+)/i))) return `Create folder ${m[1]}`;
+  if ((m = t.match(/^File\.WriteText\s+File:\s*(\w+)/i))) return `Write log to file ${m[1]}`;
+  if (/^Excel\.LaunchExcel/i.test(t)) return 'Open Excel input file';
+  if (/^Excel\.SetActiveWorksheet/i.test(t)) return 'Select worksheet';
+  if (/^Excel\.ReadFromExcel/i.test(t)) return 'Read all rows from Excel';
+  if (/^Excel\.CloseExcel/i.test(t)) return 'Save and close Excel';
+  if ((m = t.match(/^Excel\.WriteToExcel\.WriteCell.*?Value:\s*(\S+).*?Column:\s*(\w+)\s+Row:\s*(\w+)/i))) return `Write "${m[1]}" to Excel column ${m[2]}, row ${m[3]}`;
   if ((m = t.match(/^Text\.Trim\s+Text:\s*(\w+)/i))) return `Trim ${m[1]}`;
   if (/^WebAutomation\.LaunchEdge|^Web\.LaunchEdge/i.test(t)) {
     const u = t.match(/Url:\s*(\S+)/);
-    return `เปิด Edge browser${u ? ' → ' + u[1] : ''}`;
+    return `Open Edge browser${u ? ' → ' + u[1] : ''}`;
   }
-  if (/^Web\.Focus/i.test(t)) { const c = lastQuoted(t); return `Focus ที่ field ${c || ''}`; }
+  if (/^Web\.Focus/i.test(t)) { const c = lastQuoted(t); return `Focus field ${c || ''}`; }
   if (/^Web\.PopulateText/i.test(t)) {
     const c = lastQuoted(t);
     const v = t.match(/\bText:\s*(\S+)/);
-    return `กรอก "${v ? v[1] : ''}" ลง [${c || 'field'}]`;
+    return `Enter "${v ? v[1] : ''}" into [${c || 'field'}]`;
   }
-  if (/^Web\.PressButton/i.test(t)) { const c = lastQuoted(t); return `กดปุ่ม ${c || ''}`; }
-  if (/^Web\.Click/i.test(t)) { const c = lastQuoted(t); return `คลิก ${c || ''}`; }
-  if (/^WebAutomation\.CloseWebBrowser|^Web\.CloseWebBrowser/i.test(t)) return 'ปิด browser';
+  if (/^Web\.PressButton/i.test(t)) { const c = lastQuoted(t); return `Press button ${c || ''}`; }
+  if (/^Web\.Click/i.test(t)) { const c = lastQuoted(t); return `Click ${c || ''}`; }
+  if (/^WebAutomation\.CloseWebBrowser|^Web\.CloseWebBrowser/i.test(t)) return 'Close browser';
   if (/^WAIT.*Web\./i.test(t)) {
     const c = lastQuoted(t);
     const f = t.match(/FOR\s+(\d+)/);
-    return `รอ element ${c || ''}${f ? ' (timeout ' + f[1] + 's)' : ''}`;
+    return `Wait for element ${c || ''}${f ? ' (timeout ' + f[1] + 's)' : ''}`;
   }
-  if ((m = t.match(/^Workstation\.TakeScreenshot.*File:\s*(\w+)/i))) return `บันทึก screenshot → ${m[1]}`;
+  if ((m = t.match(/^Workstation\.TakeScreenshot.*File:\s*(\w+)/i))) return `Save screenshot → ${m[1]}`;
   if (/^Display\.ShowMessageDialog/i.test(t)) {
     const title = t.match(/Title:\s*(.+?)\s+Message:/);
-    return `แสดง dialog สรุปผล "${title ? title[1].trim() : ''}"`;
+    return `Show summary dialog "${title ? title[1].trim() : ''}"`;
   }
   if ((m = t.match(/^Variables\.IncreaseVariable\s+Value:\s*(\w+)/i))) return `${m[1]} + 1`;
-  if ((m = t.match(/^ERROR\s*=>\s*(\w+)/i))) return `เก็บ error message เป็น ${m[1]}`;
-  if ((m = t.match(/^Variables\.FilterDataTable\s+DataTable:\s*(\w+)/i))) return `กรองข้อมูล DataTable ${m[1]}`;
-  if ((m = t.match(/^Variables\.FindOrReplaceInDataTable.*ValueToFind:\s*(\S+)/i))) return `หาค่า ${m[1]} ใน DataTable`;
+  if ((m = t.match(/^ERROR\s*=>\s*(\w+)/i))) return `Store error message in ${m[1]}`;
+  if ((m = t.match(/^Variables\.FilterDataTable\s+DataTable:\s*(\w+)/i))) return `Filter DataTable ${m[1]}`;
+  if ((m = t.match(/^Variables\.FindOrReplaceInDataTable.*ValueToFind:\s*(\S+)/i))) return `Find ${m[1]} in DataTable`;
   if (/^Web\.LaunchChrome/i.test(t)) {
     const u = t.match(/Url:\s*(\S+)/);
-    return `เปิด Chrome${u ? ' → ' + u[1] : ''}`;
+    return `Open Chrome${u ? ' → ' + u[1] : ''}`;
   }
-  if (/^Web\.SelectRadioButton/i.test(t)) { const c = lastQuoted(t); return `เลือก radio button ${c || ''}`; }
+  if (/^Web\.SelectRadioButton/i.test(t)) { const c = lastQuoted(t); return `Select radio button ${c || ''}`; }
   if (/^Web\.SetDropDownListValueByName/i.test(t)) {
     const c = lastQuoted(t);
     const n = t.match(/OptionNames:\s*(\S+)/);
-    return `เลือก dropdown [${c || ''}] = ${n ? n[1] : ''}`;
+    return `Select dropdown [${c || ''}] = ${n ? n[1] : ''}`;
   }
   if (/^Web\.SetDropDownListValueByIndex/i.test(t)) {
     const c = lastQuoted(t);
     const n = t.match(/OptionsIndeces:\s*(\S+)/);
-    return `เลือก dropdown [${c || ''}] index ${n ? n[1] : ''}`;
+    return `Select dropdown [${c || ''}] index ${n ? n[1] : ''}`;
   }
   if (/^Web\.InvokeWebService/i.test(t)) {
     const u = t.match(/Url:\s*(\S+)/);
-    return `เรียก HTTP POST${u ? ' → ' + u[1].slice(0, 50) : ''}`;
+    return `Call HTTP POST${u ? ' → ' + u[1].slice(0, 50) : ''}`;
   }
-  if (/^UIAutomation\.FocusWindow/i.test(t)) return 'Focus หน้าต่าง';
+  if (/^UIAutomation\.FocusWindow/i.test(t)) return 'Focus window';
   if (/^UIAutomation\.PopulateTextField/i.test(t)) {
     const v = t.match(/\bText:\s*(\S.+?)\s+Mode:/);
     const c = lastQuoted(t);
-    return `กรอกฟอร์ม UI [${c || ''}] = ${v ? v[1] : ''}`;
+    return `Fill UI field [${c || ''}] = ${v ? v[1] : ''}`;
   }
-  if (/^UIAutomation\.PressButton/i.test(t)) { const c = lastQuoted(t); return `กดปุ่ม UI ${c || ''}`; }
-  if (/^UIAutomation\.WaitForRemoteDesktop/i.test(t)) { const c = lastQuoted(t); return `รอ UI element ${c || ''}`; }
+  if (/^UIAutomation\.PressButton/i.test(t)) { const c = lastQuoted(t); return `Press UI button ${c || ''}`; }
+  if (/^UIAutomation\.WaitForRemoteDesktop/i.test(t)) { const c = lastQuoted(t); return `Wait for UI element ${c || ''}`; }
   if (/^MouseAndKeyboard\.SendKeys/i.test(t)) {
     const k = t.match(/TextToSend:\s*(\S.+?)\s+DelayBetweenKeystrokes:/);
-    return `กดคีย์บอร์ด: ${k ? k[1] : ''}`;
+    return `Send keys: ${k ? k[1] : ''}`;
   }
-  if ((m = t.match(/^System\.GetEnvironmentVariable.*Name:\s*(\S+)/i))) return `อ่าน environment variable ${m[1]}`;
+  if ((m = t.match(/^System\.GetEnvironmentVariable.*Name:\s*(\S+)/i))) return `Read environment variable ${m[1]}`;
   if (/^Display\.InputDialog/i.test(t)) {
     const title = t.match(/Title:\s*(.+?)\s+Message:/);
-    return `รับ input จาก user "${title ? title[1].trim() : ''}"`;
+    return `Ask user for input "${title ? title[1].trim() : ''}"`;
   }
-  if ((m = t.match(/^WAIT\s+(\d+)\s*$/i))) return `รอ ${m[1]} วินาที`;
+  if ((m = t.match(/^WAIT\s+(\d+)\s*$/i))) return `Wait ${m[1]} seconds`;
   return t.length > 80 ? t.slice(0, 80) + '…' : t;
 }
 
@@ -935,25 +935,25 @@ function modeEnglish(text) {
     if ((m = t.match(/^DISABLE\s+(.+)$/i))) { disabled = true; t = m[1]; }
 
     if ((m = t.match(/^LOOP\s+FOREACH\s+(\w+)\s+IN\s+(\w+)/i))) {
-      items.push({ depth, label: `วนทุก ${m[1]} ใน ${m[2]}:`, raw: t });
+      items.push({ depth, label: `For each ${m[1]} in ${m[2]}:`, raw: t });
       stack.push('loop'); depth++; continue;
     }
     if ((m = t.match(/^LOOP\s+(.+)/i))) {
-      items.push({ depth, label: `วน ${m[1]}:`, raw: t });
+      items.push({ depth, label: `Loop ${m[1]}:`, raw: t });
       stack.push('loop'); depth++; continue;
     }
     if ((m = t.match(/^IF\s+(.+?)\s+THEN$/i))) {
-      items.push({ depth, label: `ถ้า ${m[1]}:`, raw: t });
+      items.push({ depth, label: `If ${m[1]}:`, raw: t });
       stack.push('if'); depth++; continue;
     }
     if ((m = t.match(/^ELSE\s+IF\s+(.+?)\s+THEN$/i))) {
       const top = stack[stack.length - 1];
       if (top === 'if') {
         depth--;
-        items.push({ depth, label: `ไม่งั้น ถ้า ${m[1]}:`, raw: t });
+        items.push({ depth, label: `Else if ${m[1]}:`, raw: t });
         depth++;
       } else {
-        items.push({ depth, label: `ไม่งั้น ถ้า ${m[1]}:`, raw: t });
+        items.push({ depth, label: `Else if ${m[1]}:`, raw: t });
       }
       continue;
     }
@@ -961,15 +961,15 @@ function modeEnglish(text) {
       const top = stack[stack.length - 1];
       if (top === 'if') {
         depth--;
-        items.push({ depth, label: 'ไม่งั้น:', raw: t });
+        items.push({ depth, label: 'Else:', raw: t });
         depth++;
       } else {
-        items.push({ depth, label: 'ไม่งั้น:', raw: t });
+        items.push({ depth, label: 'Else:', raw: t });
       }
       continue;
     }
     if ((m = t.match(/^CALL\s+(\w+)/i))) {
-      items.push({ depth, label: `เรียก subflow ${m[1]}`, raw: t });
+      items.push({ depth, label: `Run subflow ${m[1]}`, raw: t });
       continue;
     }
     if (/^END\b/i.test(t)) {
@@ -982,37 +982,37 @@ function modeEnglish(text) {
       continue;
     }
     if ((m = t.match(/^BLOCK\s+'?(\w+)'?/i))) {
-      items.push({ depth, label: `ลอง (try) "${m[1]}":`, raw: t });
+      items.push({ depth, label: `Try "${m[1]}":`, raw: t });
       stack.push('block'); depth++; continue;
     }
     if (/^ON BLOCK ERROR/i.test(t)) {
       const top = stack[stack.length - 1];
       if (top === 'block') {
         depth--;
-        items.push({ depth, label: 'ถ้าเกิด error:', raw: t });
+        items.push({ depth, label: 'On error:', raw: t });
         depth++;
       } else {
-        items.push({ depth, label: 'ถ้าเกิด error (block):', raw: t });
+        items.push({ depth, label: 'On error (block):', raw: t });
       }
       continue;
     }
     if ((m = t.match(/^ON ERROR(?:\s+REPEAT\s+\d+\s+TIMES\s+WAIT\s+\d+)?(?:\s+(\w+))?$/i))) {
       const handler = m[1] ? ` → ${m[1]}` : '';
-      items.push({ depth, label: `(ถ้า error${handler})`, raw: t });
+      items.push({ depth, label: `(on error${handler})`, raw: t });
       stack.push('onerror');
       continue;
     }
     if ((m = t.match(/^LABEL\s+(\w+)/i))) {
-      items.push({ depth, label: `[จุดบันทึก: ${m[1]}]`, raw: t }); continue;
+      items.push({ depth, label: `[Label: ${m[1]}]`, raw: t }); continue;
     }
     if ((m = t.match(/^GOTO\s+(\w+)/i))) {
-      items.push({ depth, label: `→ ข้ามไปจุด ${m[1]}`, raw: t }); continue;
+      items.push({ depth, label: `→ Go to label ${m[1]}`, raw: t }); continue;
     }
     if (/^NEXT LOOP/i.test(t)) {
-      items.push({ depth, label: '→ ไป row ถัดไป', raw: t }); continue;
+      items.push({ depth, label: '→ Skip to next iteration', raw: t }); continue;
     }
     if (/^NEXT ACTION/i.test(t)) {
-      items.push({ depth, label: '→ ไป action ถัดไป', raw: t }); continue;
+      items.push({ depth, label: '→ Continue to next action', raw: t }); continue;
     }
     const label = translateAction(t);
     items.push({ depth, label: disabled ? `[DISABLED] ${label}` : label, raw: t });
@@ -1032,7 +1032,7 @@ function modeEnglish(text) {
         j++;
       }
       if (fields.length > 1) {
-        grouped.push({ depth: cur.depth, label: `Trim ทุก field: ${fields.join(', ')}` });
+        grouped.push({ depth: cur.depth, label: `Trim fields: ${fields.join(', ')}` });
         i = j; continue;
       }
     }
@@ -1047,7 +1047,7 @@ function modeEnglish(text) {
         j++;
       }
       if (pops.length > 1) {
-        grouped.push({ depth: cur.depth, label: `กรอกฟอร์ม: ${pops.join(', ')}` });
+        grouped.push({ depth: cur.depth, label: `Fill form: ${pops.join(', ')}` });
         i = j; continue;
       }
     }
@@ -1059,8 +1059,8 @@ function modeEnglish(text) {
         j++;
       }
       if (sets.length >= 3) {
-        grouped.push({ depth: cur.depth, label: 'ตั้งค่าตัวแปร:' });
-        for (const s of sets) grouped.push({ depth: cur.depth + 1, label: '• ' + s.replace(/^ตั้งค่า /, '') });
+        grouped.push({ depth: cur.depth, label: 'Set variables:' });
+        for (const s of sets) grouped.push({ depth: cur.depth + 1, label: '• ' + s.replace(/^Set /, '') });
         i = j; continue;
       }
     }

@@ -134,5 +134,36 @@ console.log('modeC (plain flow, no regions)');
   ok('still emits nodes', /flowchart TD/.test(mmd) && /n0/.test(mmd));
 }
 
+// ===== modeEnglish: English-only step labels =====
+console.log('modeEnglish');
+{
+  const flow = [
+    'SET a TO 1',
+    'SET b TO 2',
+    'SET c TO 3',
+    'Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: f Visible: True Instance=> ExcelInstance',
+    'Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance RangeValue=> Rows',
+    'WebAutomation.LaunchEdge.LaunchEdge Url: https://example.com BrowserInstance=> Browser',
+    'LOOP FOREACH Row IN Rows',
+    "    IF Row['Status'] = Paid THEN",
+    '        NEXT LOOP',
+    '    ELSE',
+    "        WebAutomation.Click.Click BrowserInstance: Browser Control: appmask['Web Page']['Button \\'Approve\\'']",
+    '    END',
+    'END',
+    'Excel.CloseExcel.CloseAndSave Instance: ExcelInstance',
+    'WebAutomation.CloseWebBrowser BrowserInstance: Browser',
+  ].join('\n');
+  const { text } = sandbox.modeEnglish(flow);
+  ok('no Thai characters', !/[฀-๿]/.test(text), text);
+  for (const label of ['1. Set variables:', '• a = 1', 'Open Excel input file', 'Read all rows from Excel',
+    'Open Edge browser → https://example.com', 'For each Row in Rows:', "If Row['Status'] = Paid:",
+    '→ Skip to next iteration', 'Else:', "Click Button 'Approve'", 'Save and close Excel', 'Close browser']) {
+    ok('contains "' + label + '"', text.includes(label), text);
+  }
+  const sample = sandbox.modeEnglish(vm.runInContext('SAMPLE_FLOW', sandbox)).text;
+  ok('SAMPLE_FLOW steps have no Thai', !/[฀-๿]/.test(sample), sample);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
